@@ -7,7 +7,4 @@ In SIMION units this converts to 1.44*10^-8 eV/(V/mm) for 1.2 wavenumbers and 7.
 
 Energy calculations were made assuming a linear Stark shift defined by W = sE where s is the slope of the stark shift and E is the electric field.
 
-****************************************************************************************************
-*****************************************FOR AUTORUN VERSION****************************************
-****************************************************************************************************
 This version runs the same particles through the simulation at different frequencies and records the resulting data from each run.
