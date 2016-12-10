@@ -1,0 +1,13 @@
+particles {
+  coordinates = 0,
+  standard_beam {
+    tob = 0,
+    mass = 20,
+    charge = 1,
+    ke = 0,
+    cwf = 1,
+    color = 3,
+    direction = vector(1, 0, 0),
+    position = vector(0.025, 0.025, 0)
+  }
+}

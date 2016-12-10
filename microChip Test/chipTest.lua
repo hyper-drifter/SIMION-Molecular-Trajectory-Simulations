@@ -7,10 +7,10 @@ local k = 0
 local switch
 local trapped = 0 --keeps track of whether or not a molecule was trapped
 
---this reads in velocities and positions from txt files. Velocites were generated randomly, weighted by a Maxwell-Boltzmann curve at 20mK. Positions are randomly uniform in a circle with radius .4 mm centered around 1.5,1.5 mm which is the center of the quadrupole
+--this reads in velocities and positions from txt files.
 
-local g = io.open('Bigvelocities2Sim.tsv','r') --need to specify velocity and position files
-local h = io.open('Bigvelocities2Sim.tsv','r')
+local g = io.open('velocities2Sim.tsv','r') --need to specify velocity and position files
+local h = io.open('velocities2Sim.tsv','r')
 local f = io.open('positions2Sim.tsv','r')
 local i=1
 
@@ -23,15 +23,17 @@ local v = 1 --keeps track of which simulation is running
 
 local dataFile = 'initParamData.tsv' --This file captures the initial parameters of particles that are trapped
 
-local j = io.open(dataFile, 'w') --resets initParamData.tsv if it already exists in the directory
+local j = io.open(dataFile, 'w') --resets timeAlive.tsv if it already exists in the directory
 j:close()
 
-j = io.open(dataFile, 'a') --records initial parameters of trapped molecules
+j = io.open(dataFile, 'a')
 
 local initPosx, initPosy, initVx, initVy --stores initial parameters
 
 local quadrupole_frequency
 local quadHalfPeriod
+
+local scaleFactor = 1. --Use this number to scale down to micrometer dimensions
 
 
 
@@ -43,11 +45,12 @@ simion.workbench_program()
 
 --these variables should be adjustable in the workbench but they are not...
 
-adjustable simTime = 10000 --Limits simulation time to 'x' us. Max Planck sim uses 10 ms or 10000 us
+adjustable simTime = 200 --Limits simulation time to <x> us. Max Planck sim uses 10 ms or 10000 us
 adjustable zSpeed = .001 --Velocity component in z direction. At around .001 the micro/macro-motion is very observable
-adjustable frequencyStart = 5000--Allows the user to control different frequencies to be tested
+adjustable frequencyStart = 100000.-- Hz, Allows the user to control different frequencies to be tested
 adjustable frequencyStep = 1000
-adjustable frequencyMax = 25000 --Sets upper limit to frequencies
+adjustable frequencyMax = 500000.--Sets upper limit to frequencies
+adjustable maxSpeed = .015 --Maximum allowed speed
 
 if not quadrupole_frequency then --gives quadrupole initial starting frequency
       quadrupole_frequency = frequencyStart
@@ -63,9 +66,14 @@ function segment.initialize()
 	ion_vy_mm = h:read('*number')
       ion_vz_mm = zSpeed
 
-      ion_px_mm = f:read('*number')
-      ion_py_mm = f:read('*number')
+      ion_px_mm = f:read('*number')/scaleFactor
+      ion_py_mm = f:read('*number')/scaleFactor
+      ion_pz_mm = 0
 
+      --Throws out any particles that are moving too fast
+      if math.abs(ion_vx_mm) >= maxSpeed or math.abs(ion_vy_mm) >= maxSpeed then
+            ion_splat = 1
+      end
 
 	initPosx = ion_px_mm
 	initPosy = ion_py_mm
@@ -78,41 +86,48 @@ function segment.other_actions()
 		switch = ion_time_of_flight - k*quadHalfPeriod
 		--This switches the particle between the two PA instances; simulating the flipping of voltage.
 
-		if switch / quadHalfPeriod >= 1 and isIn2 == false then
+		if switch / quadHalfPeriod >= 1. then
 
-			ion_px_mm = ion_px_mm + 3 --workbench coordinates are in mm. The pa's themself have been scaled by a factor of 100
+                  if isIn2 == false then
 
-			isIn2 = true
+			      ion_px_mm = ion_px_mm + .05/scaleFactor --workbench coordinates are in mm. The pa's themself have been scaled by a factor of 100
 
-			k = k+1
+			      isIn2 = true
 
-		elseif switch / quadHalfPeriod >= 1 and isIn2 == true then
+			      k = k+1
 
-			ion_px_mm = ion_px_mm - 3
+		      elseif isIn2 == true then
 
-			isIn2 = false
+			      ion_px_mm = ion_px_mm - .05/scaleFactor
 
-			k = k+1
+			      isIn2 = false
+
+			      k = k+1
+                  end
 		end
 
-		--the following checks if the molecule reaches a distance 1 mm away from the center of the quadrupole and counts it as dead if so
+		--the following checks if the molecule gets too close to an electrode or exits the trap entirely. It then counts the molecule as terminated
 
-		if ion_px_mm < 3 then
-			if math.sqrt((1.5-ion_px_mm)^2 + (1.5-ion_py_mm)^2) >= 1 then
+            if ion_py_mm <= .0005/scaleFactor or ion_py_mm >= .0495/scaleFactor then
+                  ion_splat = 1
+            end
+
+		if isIn2 == false then
+                  if ion_px_mm <= .0005/scaleFactor or ion_px_mm >= 0.0495/scaleFactor then
 				ion_splat = 1
 			end
 		end
 
-		if ion_px_mm > 3 then
-			if math.sqrt((4.5-ion_px_mm)^2 + (1.5-ion_py_mm)^2) >= 1 then
+		if isIn2 == true then
+                  if ion_px_mm <= .0505/scaleFactor or ion_px_mm >= 0.0995/scaleFactor then
 				ion_splat = 1
 			end
 		end
 
 
 		--this keeps the ion inside the simulation region if you add a z component to velocity
-		if ion_pz_mm >= 2.99 then
-			ion_pz_mm = -2.99
+		if ion_pz_mm >= .049/scaleFactor then
+			ion_pz_mm = -.049/scaleFactor
 		end
 
 		--Stops simulation after a certain amount of time.
@@ -144,6 +159,7 @@ function segment.terminate()
 
 	v = v+1 --moves to next particle
 
+
 	if v == i then --this keeps SIMION from throwing an error at the end
             v = 1
             quadrupole_frequency = quadrupole_frequency+frequencyStep
@@ -151,7 +167,7 @@ function segment.terminate()
             quadHalfPeriod = (1/(2*quadrupole_frequency))*10^6
             h:close()
             f:close()
-            h = io.open('Bigvelocities2Sim.tsv','r')
+            h = io.open('velocities2Sim.tsv','r')
             f = io.open('positions2Sim.tsv','r')
 	end
 
