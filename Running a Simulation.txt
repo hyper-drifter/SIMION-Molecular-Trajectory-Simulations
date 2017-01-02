@@ -1,0 +1,88 @@
+I WOULD RECOMMEND VIEWING THIS IN SOMETHING OTHER THAN NOTEPAD. NOTEPAD CAN SOMETIMES OMIT TEXT.
+Author: Taylor Grubbs
+Date: 11-20-16
+Purpose: A walkthrough of how to use the various simulations that I have written for SIMION and how to analyze output data produced by these simulations. I have tried to write this in as much detail as possible so that new undergraduates working with these programs can easily jump right into the programs without much experience with lua or SIMION.
+
+(1) microChip Test
+
+
+
+	--build.lua--
+
+
+
+	The most important of all the simulations is located in the "microChip Test" folder. These files simulate molecular trajectories inside the proposed Stark decelerator microchip. The first step in using the simulation is the modification of the "build.lua" file. This script creates the PA files for SIMION to use. To simulate a different molecule the parameter that must be changed is the "mu" parameter. This is the dipole moment of the molecule which determines the slope of the Stark shift. Another parameter that must be changed is the "mass" parameter in the "chipTest.fly2" file. Currently these files are setup to simulate ND3 which has a mass of 20 AMUs and a dipole moment of 1.47 debyes.
+
+Another form of Stark shift is of the form W = sE where s is some slope of the Stark potential with respect to the electric field strength. See the paper "Two-dimensional trapping of dipolar molecules..." for an example. To use a stark potential of this form the function "starkLinearShiftSlope" must be used instead of "starkLinearShift."
+
+The size and voltage parameters are in the section titled "Parameters of the Device." Here, xsize and ysize define our grid resolution with a default of 300x300 grid units. Since SIMION works in millimeters the variable "scaleFactor" is used to bring the electrode geometry down to the correct micrometer scale. Currently it is set to 6000 --> 300 mm / 6000 mm = 50 um
+The "quadVoltage parameter" adjusts the magnitude of voltages that will be placed on the electrodes. Ignore the "quadScale" parameter, the value of quadVoltage should be exactly the same as the value intended in the real-world experiment.The quadScale parameter was used to test the effect of scaling the entire simulation down by some factor.
+
+The section labeled "Program Code" is where SIMION actually builds the electrodes. The important part here is the pa:fill function which moves through the PA creating the electrodes. Here we can see that the electrodes are .1 um thick and 5 um wide. The actual microchip will have electrodes which are 10 um wide but this simulation is looking down the center of one of these chip's channels so I have made these only 5 um wide in simulation.
+
+***REMEMBER*** that two PA files are being built here so anything that is changed in the first stage must also be changed further down in the script under the label "now for the second stage."
+
+The fast_adjust function is the next item that can be changed. This sets the electrodes with their proper voltages. Currently it is set for our intended configuration which is
+
+	- +     - -
+	    -->
+	- +     + +
+
+where each has the same magnitude of voltage given by quadVoltage but with signs indicated in the above diagram.
+
+The final item that can be changed in the build file is the method of stark potential calculation which I have already mentioned above. In the sections labeled "make PA containing Stark Potential" there is a line that is of the form
+"W = starkLinearShift(mu,Emag)." This is the current method of stark calculation being used. To change this simply replace starkLinearShift with of the functions from above and provide the proper arguments for that function.
+
+If someone wants to create potential contours in SIMION you may want to multiply W by rscale as the potentials are too small to see in SIMION by default. But remember that any simulation using rscale will not be accurate unless you change the particle's "charge" parameter to counteract the effect of adjusting the potential strength.
+
+
+
+	--chipTest.lua--
+
+
+
+	"chipTest.lua" is the script that SIMION uses to actually run the simulation. The only variables that someone may want to change are the variables with the "adjustable" type. These include "simTime" which dictates when a molecule is considered "trapped" and frequency start, stop, and max which dictate what frequencies to test.
+
+
+
+	--chipTest.iob--
+
+
+
+	The user can now open "chipTest.iob" to begin running simulations. I usually set the Trajectory quality parameter to 100. You could set it all the way to 500 but this just adds more time to the simulation and I don't think it adds that much accuracy. You might wonder "why can't I see the electrodes!?" Try zooming in on the bottom left of the screen. Unfortunately SIMION doesn't scale its interface down to the electrode sizes that we use so we will just have to deal with this. Also, you can increase the speed of the simulation by turning off the view and retain options in the trajectory display menu. The microchip can trap molecules over a large range of frequencies so you may be waiting a while for the simulation to finish. Once finished SIMION should print "I am done." in the Log tab.
+
+
+
+	--ChipTestAnalysis.nb--
+
+
+
+	After the simulation is complete, SIMION will have made a file called initParamData.tsv which contains the initial positions and velocities of the molecules that were trapped. Now the user should rename this file something useful and move it to "data" folder. Here you can open up the mathematica notebook called "ChipTestAnalysis.nb" to analyze the resulting data. Once it is open the first step is to import the data using the Import function. You shouldn't have to specify the full path like the other imports in the notebook because the data file should be in the same directory as the notebook. In this notebook there are a lot of functions that I have made that do a variety of things. Chief among these is the count function which counts how many molecules were trapped per frequency. This can be used with ListPlot to create nice graphs of the microchip's frequency dependence. These functions are all explained at the top of the notebook. In the notebook there is some analysis of the chip operating at 650 and 200 volts. You can easily just copy all of the functions and put them in another notebook if you want to use a fresh workspace.
+
+
+
+	--Random velocity and position generation--
+
+
+
+	In the main section of the microChip Test folder there is a notebook called "VelPosGenForChipTest.nb" This is the notebook that I have used to create the random positions and velocities that are simulated. Currently I am using the Maxwell-Boltzmann distribution to produce velocities that correspond to a temperature of 300 mK with a maximum speed of 40 m/s. IF THIS FUNCTION IS USED TO SIMULATE A DIFFERENT MOLECULE, BE SURE TO CHANGE THE MASS PARAMETER. The initial positions are selected randomly from a 50 x 50 um square. The sample size consists of 20,000 of these molecules.
+
+	The "chipTest.lua" script imports these when flying particles. The position and velocity files being used are called "positions2Sim.tsv" and "velocities2Sim.tsv"
+
+
+
+(2) Mass Scan
+
+	Another useful simulation is in the folder labeled "Mass Scan." This program allows a user to simulate the molecules with different masses and dipole moments. This added functionality is in the "mass scan.lua" fly'm script. This is accomplished by using multiple input files- one for the list of masses, one for the list of dipole moments, as well as the original two for velocity and position. This adds a bit more complexity to the output file but the analysis.nb workbook in the data folder has functions that can handle this output. The new output files are of the form
+
+frequency, mass, dipole moment, initial x, initial y, initial vx, initial vy.
+
+
+
+(3) Other folders
+
+	QuadrupoleSimulation: The original simulation of Max-Planck's quadrupole from the Rempe et al paper "Two-dimensional trapping of dipolar molecules in time-varying electric fields."
+
+	Single Mass w dipole shift: This is sort of like a version of Mass Scan where you only alter dipole moment while keeping mass constant. This can be used to study the microchip's capability of being a mass filter by changing how long the chip spends in each phase. This one should probably be updated to be more like the Mass scan simulation. In its current state, it is a bit awkward.
+
+	 chipWithDielectric: This is the only 3-D simulation that I have made to see if I could add dielectric material to the simulation. This could be used to simulate the Stark decelerator capabilities of the micro chip. I should modify the simulation to test something simple like a basic capacitor with dielectric material and see if the analytic solution agrees with SIMION.

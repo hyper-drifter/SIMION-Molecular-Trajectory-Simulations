@@ -8,3 +8,5 @@ Usage:
 (2) Open the "MaxPlanckQuad_v2AR.iob" file to open the workbench.
 
 (3) Fly'm! Try viewing from other perspectives to see the micro/macro-motion of the trajectories.
+
+The simulation labeled "Mass Scan" is the most updated version as it can simulate molecules of various dipole moments and mass.
